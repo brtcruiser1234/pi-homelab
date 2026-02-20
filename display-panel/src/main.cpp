@@ -10,20 +10,18 @@
 // Timing
 // ============================================
 static unsigned long lastClock    = 0;
-static unsigned long lastWeather  = 0;
-static unsigned long lastFlights  = 0;
+static unsigned long lastUnraid   = 0;
+static unsigned long lastM900     = 0;
+static unsigned long lastPi       = 0;
 static unsigned long lastServices = 0;
-static unsigned long lastStats    = 0;
-static unsigned long lastSports   = 0;
+static unsigned long lastCustom   = 0;
 
 // ============================================
 // WiFi setup via captive portal
 // ============================================
 void setupWiFi() {
     WiFiManager wm;
-
-    // Auto-connect or launch "RackDisplay" AP for config
-    wm.setConfigPortalTimeout(180);  // 3 min timeout
+    wm.setConfigPortalTimeout(180);
     wm.setConnectTimeout(30);
 
     if (!wm.autoConnect("RackDisplay", "rackdisplay")) {
@@ -31,15 +29,15 @@ void setupWiFi() {
         ESP.restart();
     }
 
-    Serial.print("Connected to WiFi. IP: ");
+    Serial.print("Connected. IP: ");
     Serial.println(WiFi.localIP());
 }
 
 // ============================================
-// NTP time sync
+// NTP time sync (Mountain Time)
 // ============================================
 void setupTime() {
-    configTime(-7 * 3600, 3600, "pool.ntp.org", "time.nist.gov");
+    configTzTime("MST7MDT,M3.2.0,M11.1.0", "pool.ntp.org", "time.nist.gov");
 
     Serial.print("Syncing time");
     struct tm timeinfo;
@@ -57,41 +55,47 @@ void setupTime() {
 // ============================================
 void setup() {
     Serial.begin(115200);
-    Serial.println("\n=== Rack Display Panel ===");
+    Serial.println("\n=== Rack Status Panel ===");
 
     // Init all 6 displays
     initDisplays();
     Serial.println("Displays initialized");
 
-    // Show boot splash on each screen
+    // Boot splash
     const char* labels[] = {
-        "CLOCK", "WEATHER", "FLIGHTS",
-        "SERVICES", "STATS", "SPORTS"
+        "UNRAID", "M900", "PI RACK",
+        "SERVICES", "NETWORK", "CLOCK"
     };
     for (int i = 0; i < NUM_DISPLAYS; i++) {
         drawBootSplash(i, labels[i]);
     }
 
-    // Connect to WiFi
-    Serial.println("Starting WiFi...");
+    // WiFi
     drawBootSplash(SCREEN_CLOCK, "WiFi...");
     setupWiFi();
     drawBootSplash(SCREEN_CLOCK, "WiFi OK");
 
-    // Sync time
-    Serial.println("Syncing time...");
+    // Time
     drawBootSplash(SCREEN_CLOCK, "NTP...");
     setupTime();
 
     // Initial data fetch
     Serial.println("Fetching initial data...");
-    fetchWeather();
-    fetchFlights();
+    fetchUnraid();
+    fetchM900();
+    fetchPiHealth();
     fetchServices();
-    fetchStats();
-    fetchSports();
+    fetchCustom();
 
-    Serial.println("Setup complete. Running...");
+    // Draw all screens once
+    drawUnraid(SCREEN_UNRAID);
+    drawM900(SCREEN_M900);
+    drawPiHealth(SCREEN_PIHEALTH);
+    drawServices(SCREEN_SERVICES);
+    drawCustom(SCREEN_CUSTOM);
+    drawClock(SCREEN_CLOCK);
+
+    Serial.println("Running.");
 }
 
 // ============================================
@@ -106,41 +110,40 @@ void loop() {
         drawClock(SCREEN_CLOCK);
     }
 
-    // Weather - every 10 minutes
-    if (now - lastWeather >= WEATHER_UPDATE_MS) {
-        lastWeather = now;
-        fetchWeather();
-        drawWeather(SCREEN_WEATHER);
+    // Unraid - every 15 seconds
+    if (now - lastUnraid >= UNRAID_UPDATE_MS) {
+        lastUnraid = now;
+        fetchUnraid();
+        drawUnraid(SCREEN_UNRAID);
     }
 
-    // Flights - every 15 seconds
-    if (now - lastFlights >= FLIGHT_UPDATE_MS) {
-        lastFlights = now;
-        fetchFlights();
-        drawFlights(SCREEN_FLIGHTS);
+    // M900 - every 10 seconds
+    if (now - lastM900 >= M900_UPDATE_MS) {
+        lastM900 = now;
+        fetchM900();
+        drawM900(SCREEN_M900);
     }
 
-    // Services - every 60 seconds
+    // Pi health - every 15 seconds
+    if (now - lastPi >= PI_UPDATE_MS) {
+        lastPi = now;
+        fetchPiHealth();
+        drawPiHealth(SCREEN_PIHEALTH);
+    }
+
+    // Services - every 30 seconds
     if (now - lastServices >= SERVICES_UPDATE_MS) {
         lastServices = now;
         fetchServices();
         drawServices(SCREEN_SERVICES);
     }
 
-    // Stats - every 30 seconds
-    if (now - lastStats >= STATS_UPDATE_MS) {
-        lastStats = now;
-        fetchStats();
-        drawStats(SCREEN_STATS);
+    // Custom (network) - every 10 seconds
+    if (now - lastCustom >= CUSTOM_UPDATE_MS) {
+        lastCustom = now;
+        fetchCustom();
+        drawCustom(SCREEN_CUSTOM);
     }
 
-    // Sports - every 30 seconds
-    if (now - lastSports >= STATS_UPDATE_MS) {
-        lastSports = now;
-        fetchSports();
-        drawSports(SCREEN_SPORTS);
-    }
-
-    // Small delay to prevent tight loop
     delay(10);
 }

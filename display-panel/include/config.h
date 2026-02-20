@@ -31,48 +31,54 @@
 
 // ============================================
 // Data Sources - your homelab services
+// Each machine runs a small stats API script
 // Update IPs after everything is on the network
 // ============================================
 
-// M900 (main server)
+// M900 (main server) - runs stats-api.py on port 9200
 #define M900_IP             "10.1.10.XXX"
-#define JAZZ_STATS_PORT     8888
-#define NHL_TRACKER_PORT    3050
+#define M900_STATS_PORT     9200
 
-// Unraid
+// Unraid - runs stats-api.sh via user scripts on port 9201
 #define UNRAID_IP           "10.1.10.193"
-#define MAMMOTH_STATS_PORT  9999
+#define UNRAID_STATS_PORT   9201
 
-// Pis (update after setup)
-#define FLIGHT_RADAR_IP     "flight-radar.local"
-#define UPTIME_KUMA_IP      "uptime-kuma.local"
-#define UPTIME_KUMA_PORT    3001
+// Pis - each runs stats-api.py on port 9200
+#define PI_FLIGHT_IP        "flight-radar.local"
+#define PI_UPTIME_IP        "uptime-kuma.local"
+#define PI_SPARE1_IP        "pi-spare.local"
+#define PI_SPARE2_IP        "pi-spare.local"
+
+// Service endpoints for health checks
+#define JAZZ_STATS_URL      "http://10.1.10.XXX:8888"
+#define NHL_TRACKER_URL     "http://10.1.10.XXX:3050"
+#define CLAUDECAD_URL       "http://10.1.10.XXX:4000"
+#define PLEX_URL            "http://10.1.10.193:32400"
+#define SONARR_URL          "http://10.1.10.193:8989"
+#define RADARR_URL          "http://10.1.10.193:7878"
+#define OVERSEERR_URL       "http://10.1.10.193:5055"
+#define AUDIOBOOKSHELF_URL  "http://10.1.10.193:13378"
+#define MAMMOTH_URL         "http://10.1.10.193:9999"
+#define FLIGHT_TAR1090_URL  "http://flight-radar.local/tar1090"
+#define UPTIME_KUMA_URL     "http://uptime-kuma.local:3001"
 
 // ============================================
 // Update intervals (milliseconds)
 // ============================================
 #define CLOCK_UPDATE_MS     1000      // 1 second
-#define WEATHER_UPDATE_MS   600000    // 10 minutes
-#define STATS_UPDATE_MS     30000     // 30 seconds
-#define FLIGHT_UPDATE_MS    15000     // 15 seconds
-#define SERVICES_UPDATE_MS  60000     // 1 minute
+#define UNRAID_UPDATE_MS    15000     // 15 seconds
+#define M900_UPDATE_MS      10000     // 10 seconds
+#define PI_UPDATE_MS        15000     // 15 seconds
+#define SERVICES_UPDATE_MS  30000     // 30 seconds
+#define CUSTOM_UPDATE_MS    10000     // 10 seconds
 
 // ============================================
-// Weather (OpenWeatherMap - free tier)
-// Sign up at: https://openweathermap.org/api
-// ============================================
-#define OWM_API_KEY         "YOUR_API_KEY_HERE"
-#define OWM_LAT             "YOUR_LATITUDE"
-#define OWM_LON             "YOUR_LONGITUDE"
-#define OWM_UNITS           "imperial"
-
-// ============================================
-// Display assignments (which screen shows what)
+// Screen assignments (which screen shows what)
 // 0-5 from left to right
 // ============================================
-#define SCREEN_CLOCK        0
-#define SCREEN_WEATHER      1
-#define SCREEN_FLIGHTS      2
-#define SCREEN_SERVICES     3
-#define SCREEN_STATS        4
-#define SCREEN_SPORTS       5
+#define SCREEN_UNRAID       0   // Unraid drive temps + storage
+#define SCREEN_M900         1   // M900 CPU/RAM gauges
+#define SCREEN_PIHEALTH     2   // All 4 Pi temps
+#define SCREEN_SERVICES     3   // Service up/down status
+#define SCREEN_CUSTOM       4   // Custom stats gauge
+#define SCREEN_CLOCK        5   // Clock (lowest priority, rightmost)

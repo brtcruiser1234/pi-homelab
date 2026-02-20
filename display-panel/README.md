@@ -1,83 +1,90 @@
 # Rack Display Panel - ESP32-S3 + 6x Round TFTs
 
-1U rack-mounted display panel with 6x 1.28" round GC9A01 TFTs driven by an ESP32-S3-DevKitC.
+1U rack-mounted status panel with 6x 1.28" round GC9A01 TFTs driven by an ESP32-S3-DevKitC. Shows real-time health of your entire homelab with RPM-style gauges.
 
 ## Screens (left to right)
 
-| # | Screen | Data Source | Update Rate |
-|---|--------|-------------|-------------|
-| 1 | Clock + Date | NTP | 1s |
-| 2 | Weather | OpenWeatherMap API | 10min |
-| 3 | Flight Radar | flight-radar Pi (tar1090) | 15s |
-| 4 | Service Status | HTTP health checks | 60s |
-| 5 | System Stats | ESP32 internal + WiFi | 30s |
-| 6 | Sports Scores | Jazz-Stats + Mammoth Stats | 30s |
+| # | Screen | What | Update |
+|---|--------|------|--------|
+| 1 | **UNRAID** | Drive temps (bar chart), storage usage, array status, docker count | 15s |
+| 2 | **M900** | CPU gauge + temp, RAM gauge, Disk gauge | 10s |
+| 3 | **PI RACK** | 4 mini temp gauges (one per Pi, shows offline status) | 15s |
+| 4 | **SERVICES** | Green/red dots for all 11 services across M900 + Unraid + Pis | 30s |
+| 5 | **NETWORK** | Download/upload bandwidth gauge (Mbps) | 10s |
+| 6 | **CLOCK** | Time, AM/PM, day, date | 1s |
 
 ## Hardware
 
-- **MCU:** ESP32-S3-DevKitC
+- **MCU:** ESP32-S3-DevKitC (flashing over Tasmota)
 - **Displays:** 6x GC9A01 1.28" round TFT (240x240, SPI)
 - **Mount:** Custom 3D printed 1U faceplate for Lab Rax 10" rack
 
-## Wiring
+## Data Architecture
 
-All displays share one SPI bus with individual chip selects:
+```
+                    ┌─────────────┐
+                    │  ESP32-S3   │ ← pulls JSON every 10-30s
+                    │  6x TFTs   │
+                    └──────┬──────┘
+                           │ HTTP/JSON (WiFi)
+          ┌────────────────┼────────────────┐
+          ▼                ▼                ▼
+   ┌─────────────┐  ┌───────────┐  ┌──────────────┐
+   │ M900 :9200  │  │Unraid:9201│  │ Pis :9200    │
+   │ m900-stats  │  │unraid-stats│ │ pi-stats     │
+   └─────────────┘  └───────────┘  └──────────────┘
+          │                │                │
+          └────────────────┼────────────────┘
+                           │ same JSON APIs
+                    ┌──────┴──────┐
+                    │ Web Dashboard│ ← browser pulls same data
+                    │ M900 :9300  │
+                    └─────────────┘
+```
+
+## Wiring
 
 | Signal | GPIO | Notes |
 |--------|------|-------|
-| MOSI | 11 | Shared - data to all displays |
-| SCLK | 12 | Shared - clock |
-| DC | 13 | Shared - data/command |
-| RST | 14 | Shared - reset |
-| CS 1 | 10 | Display 1 (clock) |
-| CS 2 | 9 | Display 2 (weather) |
-| CS 3 | 46 | Display 3 (flights) |
-| CS 4 | 3 | Display 4 (services) |
-| CS 5 | 8 | Display 5 (stats) |
-| CS 6 | 18 | Display 6 (sports) |
+| MOSI | 11 | Shared |
+| SCLK | 12 | Shared |
+| DC | 13 | Shared |
+| RST | 14 | Shared |
+| CS 1 | 10 | Unraid |
+| CS 2 | 9 | M900 |
+| CS 3 | 46 | Pi Rack |
+| CS 4 | 3 | Services |
+| CS 5 | 8 | Network |
+| CS 6 | 18 | Clock |
 | VCC | 3.3V | All displays |
 | GND | GND | All displays |
 
 ## Building & Flashing
 
-### Prerequisites
-- [PlatformIO](https://platformio.org/) (VS Code extension or CLI)
-- USB-C cable
-
-### Flash over Tasmota
-1. Put ESP32-S3 in download mode: hold BOOT button, press RESET, release BOOT
-2. Connect USB-C to computer
-3. Build and flash:
-
 ```bash
+# Install PlatformIO CLI
+pip install platformio
+
+# Build and flash (hold BOOT on S3, press RESET, release BOOT)
 cd display-panel
 pio run -t upload
+
+# Monitor serial output
+pio device monitor
 ```
 
-### First Boot WiFi Setup
-1. ESP32 creates a WiFi AP called **"RackDisplay"**
-2. Connect to it from your phone (password: `rackdisplay`)
-3. Browser opens captive portal - select your home WiFi and enter password
-4. ESP32 saves credentials and connects automatically on future boots
+## First Boot
+
+1. ESP32 creates WiFi AP: **RackDisplay** (password: `rackdisplay`)
+2. Connect phone → captive portal opens → select home WiFi
+3. Displays boot up and start pulling data
 
 ## Configuration
 
-Edit `include/config.h`:
-1. Update IP addresses for your M900 and Pis
-2. Add your OpenWeatherMap API key (free at https://openweathermap.org/api)
-3. Set your latitude/longitude for weather
-4. Rearrange screen assignments if desired
+Edit `include/config.h` with your actual IPs before flashing.
 
 ## Dependencies
 
-- **LovyanGFX** - Fast display driver (supports GC9A01 natively)
-- **ArduinoJson** - JSON parsing for API responses
-- **WiFiManager** - Captive portal for WiFi config (no hardcoded passwords)
-
-## TODO
-
-- [ ] Add JSON API endpoints to Jazz-Stats and Mammoth Stats for easy parsing
-- [ ] Add screen brightness auto-dim (time-based or ambient sensor)
-- [ ] Add OTA updates so you don't need USB to reflash
-- [ ] Custom graphics/icons for weather conditions
-- [ ] Screen rotation/carousel mode
+- **LovyanGFX** - Fast GC9A01 display driver
+- **ArduinoJson** - JSON parsing
+- **WiFiManager** - Captive portal WiFi config

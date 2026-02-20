@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rack Status</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: #0a0a0a;
+            color: #fff;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
+        }
+
+        .header {
+            text-align: center;
+            padding: 20px;
+            border-bottom: 1px solid #1a1a1a;
+        }
+
+        .header h1 {
+            font-size: 1.4rem;
+            font-weight: 300;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            color: #666;
+        }
+
+        .header .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #22c55e;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+            padding: 20px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .panel {
+            background: #111;
+            border: 1px solid #1a1a1a;
+            border-radius: 12px;
+            padding: 20px;
+            position: relative;
+        }
+
+        .panel-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .panel-title .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+        }
+
+        /* Gauge Canvas */
+        .gauge-row {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .gauge-container {
+            text-align: center;
+            position: relative;
+        }
+
+        .gauge-container canvas {
+            display: block;
+            margin: 0 auto;
+        }
+
+        .gauge-label {
+            font-size: 0.7rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 4px;
+        }
+
+        .gauge-value {
+            font-size: 1.4rem;
+            font-weight: 300;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -10%);
+        }
+
+        .gauge-unit {
+            font-size: 0.6rem;
+            color: #666;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, 100%);
+        }
+
+        /* Service list */
+        .service-list {
+            list-style: none;
+        }
+
+        .service-item {
+            display: flex;
+            align-items: center;
+            padding: 6px 0;
+            border-bottom: 1px solid #1a1a1a;
+            font-size: 0.85rem;
+        }
+
+        .service-item:last-child { border-bottom: none; }
+
+        .service-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 10px;
+            flex-shrink: 0;
+        }
+
+        .service-dot.up { background: #22c55e; }
+        .service-dot.down { background: #ef4444; }
+
+        .service-name { flex: 1; color: #ccc; }
+        .service-status {
+            font-size: 0.7rem;
+            color: #666;
+            text-transform: uppercase;
+        }
+
+        /* Drive temps */
+        .drive-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+            gap: 8px;
+        }
+
+        .drive-card {
+            background: #0a0a0a;
+            border: 1px solid #222;
+            border-radius: 8px;
+            padding: 8px;
+            text-align: center;
+        }
+
+        .drive-name {
+            font-size: 0.65rem;
+            color: #666;
+            margin-bottom: 4px;
+        }
+
+        .drive-temp {
+            font-size: 1.2rem;
+            font-weight: 300;
+        }
+
+        .drive-temp.cool { color: #22c55e; }
+        .drive-temp.warm { color: #eab308; }
+        .drive-temp.hot { color: #ef4444; }
+
+        /* Storage bar */
+        .storage-bar {
+            margin-top: 12px;
+        }
+
+        .storage-bar-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: #666;
+            margin-bottom: 4px;
+        }
+
+        .storage-bar-track {
+            height: 8px;
+            background: #1a1a1a;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .storage-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        /* Pi grid */
+        .pi-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .pi-card {
+            background: #0a0a0a;
+            border: 1px solid #222;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .pi-card.offline {
+            opacity: 0.4;
+        }
+
+        .pi-name {
+            font-size: 0.7rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        /* Network stats */
+        .net-stats {
+            display: flex;
+            justify-content: space-around;
+            text-align: center;
+        }
+
+        .net-stat-value {
+            font-size: 2rem;
+            font-weight: 200;
+        }
+
+        .net-stat-unit {
+            font-size: 0.7rem;
+            color: #666;
+        }
+
+        .net-stat-label {
+            font-size: 0.7rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+
+        /* Clock */
+        .clock-display {
+            text-align: center;
+            padding: 10px 0;
+        }
+
+        .clock-time {
+            font-size: 3rem;
+            font-weight: 200;
+            color: #fff;
+        }
+
+        .clock-ampm {
+            font-size: 1rem;
+            color: #444;
+            margin-left: 4px;
+        }
+
+        .clock-date {
+            font-size: 1rem;
+            color: #444;
+            margin-top: 4px;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 16px;
+            font-size: 0.7rem;
+            color: #333;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1><span class="status-dot"></span>Rack Status</h1>
+    </div>
+
+    <div class="dashboard">
+        <!-- Unraid Panel -->
+        <div class="panel" id="panel-unraid">
+            <div class="panel-title">
+                <span class="dot" style="background:#f97316"></span>
+                Unraid
+                <span id="unraid-array" style="margin-left:auto;font-size:0.65rem;color:#666">--</span>
+            </div>
+            <div class="drive-grid" id="unraid-drives"></div>
+            <div class="storage-bar">
+                <div class="storage-bar-label">
+                    <span>Storage</span>
+                    <span id="unraid-storage-text">-- / --</span>
+                </div>
+                <div class="storage-bar-track">
+                    <div class="storage-bar-fill" id="unraid-storage-bar" style="width:0%;background:#22c55e"></div>
+                </div>
+            </div>
+            <div style="margin-top:8px;font-size:0.7rem;color:#666;text-align:center">
+                <span id="unraid-docker">-- containers</span>
+            </div>
+        </div>
+
+        <!-- M900 Panel -->
+        <div class="panel" id="panel-m900">
+            <div class="panel-title">
+                <span class="dot" style="background:#06b6d4"></span>
+                M900
+            </div>
+            <div class="gauge-row">
+                <div class="gauge-container">
+                    <canvas id="gauge-m900-cpu" width="140" height="140"></canvas>
+                    <span class="gauge-value" id="val-m900-cpu">--%</span>
+                    <span class="gauge-unit">CPU</span>
+                    <div class="gauge-label" id="m900-cpu-temp">--°C</div>
+                </div>
+                <div class="gauge-container">
+                    <canvas id="gauge-m900-ram" width="140" height="140"></canvas>
+                    <span class="gauge-value" id="val-m900-ram">--%</span>
+                    <span class="gauge-unit">RAM</span>
+                    <div class="gauge-label" id="m900-ram-detail">-- / --</div>
+                </div>
+                <div class="gauge-container">
+                    <canvas id="gauge-m900-disk" width="140" height="140"></canvas>
+                    <span class="gauge-value" id="val-m900-disk">--%</span>
+                    <span class="gauge-unit">DISK</span>
+                    <div class="gauge-label" id="m900-disk-detail">-- / --</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pi Rack Panel -->
+        <div class="panel" id="panel-pi">
+            <div class="panel-title">
+                <span class="dot" style="background:#22c55e"></span>
+                Pi Rack
+            </div>
+            <div class="pi-grid" id="pi-grid"></div>
+        </div>
+
+        <!-- Services Panel -->
+        <div class="panel" id="panel-services">
+            <div class="panel-title">
+                <span class="dot" style="background:#eab308"></span>
+                Services
+                <span id="services-count" style="margin-left:auto;font-size:0.65rem;color:#666">--/--</span>
+            </div>
+            <ul class="service-list" id="service-list"></ul>
+        </div>
+
+        <!-- Network Panel -->
+        <div class="panel" id="panel-network">
+            <div class="panel-title">
+                <span class="dot" style="background:#a855f7"></span>
+                Network
+            </div>
+            <div class="gauge-row">
+                <div class="gauge-container">
+                    <canvas id="gauge-net-down" width="140" height="140"></canvas>
+                    <span class="gauge-value" id="val-net-down">--</span>
+                    <span class="gauge-unit">DOWN Mbps</span>
+                </div>
+                <div class="gauge-container">
+                    <canvas id="gauge-net-up" width="140" height="140"></canvas>
+                    <span class="gauge-value" id="val-net-up">--</span>
+                    <span class="gauge-unit">UP Mbps</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Clock Panel -->
+        <div class="panel" id="panel-clock">
+            <div class="panel-title">
+                <span class="dot" style="background:#444"></span>
+                Clock
+            </div>
+            <div class="clock-display">
+                <div>
+                    <span class="clock-time" id="clock-time">--:--</span>
+                    <span class="clock-ampm" id="clock-ampm"></span>
+                </div>
+                <div class="clock-date" id="clock-date">---</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        Last updated: <span id="last-update">--</span>
+    </div>
+
+    <script>
+        // ============================================
+        // Configuration - UPDATE THESE IPs
+        // ============================================
+        const CONFIG = {
+            m900: { statsUrl: '/api/m900' },
+            unraid: { statsUrl: '/api/unraid' },
+            pis: [
+                { name: 'Flight Radar', host: 'flight-radar', statsUrl: '/api/pi/flight-radar' },
+                { name: 'Uptime Kuma', host: 'uptime-kuma', statsUrl: '/api/pi/uptime-kuma' },
+                { name: 'Spare 1', host: 'pi-spare-1', statsUrl: '/api/pi/spare-1' },
+                { name: 'Spare 2', host: 'pi-spare-2', statsUrl: '/api/pi/spare-2' },
+            ],
+            services: [
+                { name: 'Jazz Stats', url: '/api/check/jazz' },
+                { name: 'NHL Tracker', url: '/api/check/nhl' },
+                { name: 'ClaudeCAD', url: '/api/check/claudecad' },
+                { name: 'Plex', url: '/api/check/plex' },
+                { name: 'Sonarr', url: '/api/check/sonarr' },
+                { name: 'Radarr', url: '/api/check/radarr' },
+                { name: 'Overseerr', url: '/api/check/overseerr' },
+                { name: 'Audiobookshelf', url: '/api/check/audiobookshelf' },
+                { name: 'Mammoth Stats', url: '/api/check/mammoth' },
+                { name: 'FlightRadar', url: '/api/check/flightradar' },
+                { name: 'Uptime Kuma', url: '/api/check/uptimekuma' },
+            ],
+            intervals: {
+                m900: 10000,
+                unraid: 15000,
+                pis: 15000,
+                services: 30000,
+                clock: 1000,
+            }
+        };
+
+        // ============================================
+        // Gauge Drawing (Canvas)
+        // ============================================
+        function drawGauge(canvasId, value, max, warn, crit) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width;
+            const h = canvas.height;
+            const cx = w / 2;
+            const cy = h / 2;
+            const radius = Math.min(w, h) / 2 - 10;
+            const lineWidth = 12;
+            const startAngle = 0.75 * Math.PI;  // 135 degrees
+            const sweepAngle = 1.5 * Math.PI;   // 270 degrees
+
+            ctx.clearRect(0, 0, w, h);
+
+            // Background arc
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, startAngle, startAngle + sweepAngle);
+            ctx.strokeStyle = '#1a1a1a';
+            ctx.lineWidth = lineWidth;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            // Value arc with gradient color
+            const pct = Math.min(Math.max(value / max, 0), 1);
+            const endAngle = startAngle + pct * sweepAngle;
+
+            let color = '#22c55e';  // green
+            if (value >= crit) color = '#ef4444';      // red
+            else if (value >= warn) color = '#eab308';  // yellow
+
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, startAngle, endAngle);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = lineWidth;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            // Tick marks
+            for (let i = 0; i <= 8; i++) {
+                const tickAngle = startAngle + (i / 8) * sweepAngle;
+                const innerR = radius - lineWidth / 2 - 6;
+                const outerR = radius + lineWidth / 2 + 4;
+                const cos = Math.cos(tickAngle);
+                const sin = Math.sin(tickAngle);
+
+                ctx.beginPath();
+                ctx.moveTo(cx + innerR * cos, cy + innerR * sin);
+                ctx.lineTo(cx + outerR * cos, cy + outerR * sin);
+                ctx.strokeStyle = (i % 2 === 0) ? '#333' : '#1a1a1a';
+                ctx.lineWidth = (i % 2 === 0) ? 2 : 1;
+                ctx.stroke();
+            }
+
+            // Needle
+            const needleR = radius + lineWidth / 2 + 2;
+            const needleCos = Math.cos(endAngle);
+            const needleSin = Math.sin(endAngle);
+            ctx.beginPath();
+            ctx.arc(cx + needleR * needleCos, cy + needleR * needleSin, 3, 0, 2 * Math.PI);
+            ctx.fillStyle = '#fff';
+            ctx.fill();
+        }
+
+        function tempColor(temp) {
+            if (temp >= 55) return 'hot';
+            if (temp >= 40) return 'warm';
+            return 'cool';
+        }
+
+        function barColor(pct) {
+            if (pct >= 90) return '#ef4444';
+            if (pct >= 75) return '#eab308';
+            return '#22c55e';
+        }
+
+        // ============================================
+        // API proxy - dashboard server proxies requests
+        // to internal services (avoids CORS issues)
+        // ============================================
+
+        async function fetchJSON(url) {
+            try {
+                const resp = await fetch(url, { signal: AbortSignal.timeout(5000) });
+                if (!resp.ok) return null;
+                return await resp.json();
+            } catch {
+                return null;
+            }
+        }
+
+        // ============================================
+        // Update functions
+        // ============================================
+
+        let prevBytesSent = 0;
+        let prevBytesRecv = 0;
+
+        async function updateM900() {
+            const data = await fetchJSON(CONFIG.m900.statsUrl);
+            if (!data) return;
+
+            drawGauge('gauge-m900-cpu', data.cpu.percent, 100, 75, 90);
+            drawGauge('gauge-m900-ram', data.memory.percent, 100, 80, 95);
+            drawGauge('gauge-m900-disk', data.disk.percent, 100, 80, 95);
+
+            document.getElementById('val-m900-cpu').textContent = Math.round(data.cpu.percent) + '%';
+            document.getElementById('val-m900-ram').textContent = Math.round(data.memory.percent) + '%';
+            document.getElementById('val-m900-disk').textContent = Math.round(data.disk.percent) + '%';
+            document.getElementById('m900-cpu-temp').textContent = data.cpu.temp_c + '°C';
+            document.getElementById('m900-ram-detail').textContent = data.memory.used_gb + ' / ' + data.memory.total_gb + ' GB';
+            document.getElementById('m900-disk-detail').textContent = data.disk.used_gb + ' / ' + data.disk.total_gb + ' GB';
+
+            // Network
+            if (prevBytesSent > 0) {
+                const interval = CONFIG.intervals.m900 / 1000;
+                const downMbps = ((data.network.bytes_recv - prevBytesRecv) * 8 / 1000000) / interval;
+                const upMbps = ((data.network.bytes_sent - prevBytesSent) * 8 / 1000000) / interval;
+                drawGauge('gauge-net-down', Math.max(downMbps, 0), 100, 50, 80);
+                drawGauge('gauge-net-up', Math.max(upMbps, 0), 100, 50, 80);
+                document.getElementById('val-net-down').textContent = Math.max(downMbps, 0).toFixed(1);
+                document.getElementById('val-net-up').textContent = Math.max(upMbps, 0).toFixed(1);
+            }
+            prevBytesSent = data.network.bytes_sent;
+            prevBytesRecv = data.network.bytes_recv;
+
+            document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+        }
+
+        async function updateUnraid() {
+            const data = await fetchJSON(CONFIG.unraid.statsUrl);
+            if (!data) return;
+
+            // Drives
+            const grid = document.getElementById('unraid-drives');
+            grid.innerHTML = '';
+            (data.drives || []).forEach(drive => {
+                const cls = tempColor(drive.temp_c);
+                grid.innerHTML += `
+                    <div class="drive-card">
+                        <div class="drive-name">${drive.device}</div>
+                        <div class="drive-temp ${cls}">${drive.temp_c}°</div>
+                    </div>`;
+            });
+
+            // Storage
+            const usedTB = (data.storage.used_gb || 0) / 1024;
+            const totalTB = (data.storage.total_gb || 0) / 1024;
+            const pct = totalTB > 0 ? (usedTB / totalTB * 100) : 0;
+            document.getElementById('unraid-storage-text').textContent = usedTB.toFixed(1) + ' / ' + totalTB.toFixed(1) + ' TB';
+            const bar = document.getElementById('unraid-storage-bar');
+            bar.style.width = pct + '%';
+            bar.style.background = barColor(pct);
+
+            // Array
+            document.getElementById('unraid-array').textContent = data.array_status || '--';
+
+            // Docker
+            const docker = data.docker || {};
+            document.getElementById('unraid-docker').textContent = (docker.running || 0) + '/' + (docker.total || 0) + ' containers';
+        }
+
+        async function updatePis() {
+            const grid = document.getElementById('pi-grid');
+            grid.innerHTML = '';
+
+            for (const pi of CONFIG.pis) {
+                const data = await fetchJSON(pi.statsUrl);
+                const online = !!data;
+
+                if (online) {
+                    grid.innerHTML += `
+                        <div class="pi-card">
+                            <div class="pi-name">${pi.name}</div>
+                            <div class="gauge-container" style="position:relative;display:inline-block">
+                                <canvas id="gauge-pi-${pi.host}" width="90" height="90"></canvas>
+                                <span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-10%);font-size:1.1rem;font-weight:300">${Math.round(data.cpu.temp_c)}°</span>
+                            </div>
+                            <div style="font-size:0.65rem;color:#666;margin-top:4px">
+                                CPU ${Math.round(data.cpu.percent)}% · RAM ${Math.round(data.memory.percent)}%
+                            </div>
+                        </div>`;
+                } else {
+                    grid.innerHTML += `
+                        <div class="pi-card offline">
+                            <div class="pi-name">${pi.name}</div>
+                            <div style="font-size:1.5rem;color:#ef4444;padding:20px 0">OFF</div>
+                        </div>`;
+                }
+            }
+
+            // Draw mini gauges for online Pis
+            for (const pi of CONFIG.pis) {
+                const data = await fetchJSON(pi.statsUrl);
+                if (data) {
+                    drawGauge('gauge-pi-' + pi.host, data.cpu.temp_c, 85, 65, 75);
+                }
+            }
+        }
+
+        async function updateServices() {
+            const list = document.getElementById('service-list');
+            const data = await fetchJSON('/api/services');
+            if (!data) return;
+
+            let upCount = 0;
+            list.innerHTML = '';
+
+            for (const svc of data) {
+                if (svc.up) upCount++;
+                list.innerHTML += `
+                    <li class="service-item">
+                        <span class="service-dot ${svc.up ? 'up' : 'down'}"></span>
+                        <span class="service-name">${svc.name}</span>
+                        <span class="service-status">${svc.up ? 'online' : 'offline'}</span>
+                    </li>`;
+            }
+
+            document.getElementById('services-count').textContent = upCount + '/' + data.length;
+        }
+
+        function updateClock() {
+            const now = new Date();
+            let hours = now.getHours();
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12 || 12;
+            const mins = now.getMinutes().toString().padStart(2, '0');
+
+            document.getElementById('clock-time').textContent = hours + ':' + mins;
+            document.getElementById('clock-ampm').textContent = ampm;
+
+            const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+            const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            document.getElementById('clock-date').textContent =
+                days[now.getDay()] + ', ' + months[now.getMonth()] + ' ' + now.getDate();
+        }
+
+        // ============================================
+        // Start polling
+        // ============================================
+        updateM900();
+        updateUnraid();
+        updatePis();
+        updateServices();
+        updateClock();
+
+        setInterval(updateM900, CONFIG.intervals.m900);
+        setInterval(updateUnraid, CONFIG.intervals.unraid);
+        setInterval(updatePis, CONFIG.intervals.pis);
+        setInterval(updateServices, CONFIG.intervals.services);
+        setInterval(updateClock, CONFIG.intervals.clock);
+    </script>
+</body>
+</html>

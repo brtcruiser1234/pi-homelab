@@ -1,0 +1,9 @@
+{
+  "name": "rack-status-dashboard",
+  "version": "1.0.0",
+  "description": "Rack health dashboard with RPM-style gauges",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
