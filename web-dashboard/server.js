@@ -64,7 +64,7 @@ function proxyFetch(url, timeout = 3000) {
 function httpCheck(url, timeout = 2000) {
     return new Promise((resolve) => {
         const req = http.get(url, { timeout }, (res) => {
-            resolve(res.statusCode > 0 && res.statusCode < 400);
+            resolve(res.statusCode > 0 && res.statusCode < 500);
             res.resume();
         });
         req.on('error', () => resolve(false));
