@@ -7,7 +7,7 @@ Raspberry Pi homelab project for a 10" Lab Rax rack setup.
 | # | Board | Role | Status |
 |---|-------|------|--------|
 | 1 | Raspberry Pi 3B | FlightRadar / ADS-B Receiver | Planning |
-| 2 | Raspberry Pi 3B | TBD | Planning |
+| 2 | Raspberry Pi 3B | Display Panel Driver (6x round TFTs) | Planning |
 | 3 | Raspberry Pi 3B | TBD | Planning |
 | 4 | Raspberry Pi 3B | TBD | Planning |
 
@@ -22,8 +22,10 @@ Raspberry Pi homelab project for a 10" Lab Rax rack setup.
 ### Confirmed
 - **FlightRadar24 / ADS-B Receiver** - Track aircraft with an RTL-SDR dongle + Pi
 
+### Confirmed
+- **1U Display Panel** - 6x 1.28" round GC9A01 TFTs in a custom rack-mounted faceplate ([detailed plan](docs/display-panel-plan.md))
+
 ### Under Consideration
-- TFT display dashboard (weather, stats, system monitoring?)
 - Pi-hole DNS ad blocker
 - Home Assistant
 - Network monitoring (Uptime Kuma, Grafana)
@@ -36,6 +38,7 @@ Raspberry Pi homelab project for a 10" Lab Rax rack setup.
 pi-homelab/
 ├── README.md           # This file
 ├── 3d-prints/          # STL files and OpenSCAD sources for rack mounts
+├── display-panel/      # 1U display panel (6x round TFTs) software
 ├── flight-radar/       # FlightRadar24 setup scripts and config
 ├── docs/               # Planning docs, wiring diagrams, etc.
 └── scripts/            # Setup/provisioning scripts
